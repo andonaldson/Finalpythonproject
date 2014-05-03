@@ -1,8 +1,13 @@
 import os
-import wx
-import wx.media
+import sys
+import wave
+import math
+import struct
 import random
-from PIL import Image
+import argparse
+from itertools import *
+import wx
+import random
 from array import *
 
 class MainWindow(wx.Frame):
@@ -54,6 +59,10 @@ class MainWindow(wx.Frame):
         self.buttons[5].Bind(wx.EVT_BUTTON, self.ButtonClick6)
         self.buttons[6].SetLabel("GreyScale")
         self.buttons[6].Bind(wx.EVT_BUTTON, self.ButtonClick7)
+        self.buttons[7].SetLabel("Combination")
+        self.buttons[7].Bind(wx.EVT_BUTTON, self.ButtonClick8)
+        
+        
         # Use some sizers to see layout options
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer.Add(self.sizer2, 0, wx.EXPAND)
@@ -100,6 +109,13 @@ class MainWindow(wx.Frame):
         png = wx.Image("C:\\Images\\leaf.jpg", wx.BITMAP_TYPE_ANY).ConvertToBitmap()
         self.greyscalefilter(png)
         wx.StaticBitmap(self, -1, png, (0, 0), (png.GetWidth(), png.GetHeight()))   
+        
+    def ButtonClick8(self,e):
+        png = wx.Image("C:\\Images\\leaf.jpg", wx.BITMAP_TYPE_ANY).ConvertToBitmap()
+        self.greyscalefilter(png)
+        self.posterizefilter(png)
+        self.warholefilter(png)
+        wx.StaticBitmap(self, -1, png, (0, 0), (png.GetWidth(), png.GetHeight())) 
 
     
     def OnAbout(self,e):
@@ -127,21 +143,59 @@ class MainWindow(wx.Frame):
             self.control.SetValue(f.read())
             f.close()
         dlg.Destroy()
+        
     def OnClear(self,e):
         dc = wx.MemoryDC()
-        dc.SelectObject(wx.NullBitmap)
+        dc.Clear(self)
         
-        
+    def warholefilter(self,bmpicture):
+        interval_values=array('i')
+        interval_count=32
+        group_size=256/interval_count
+        for i in range(0,interval_count-1):
+            interval_values.append(group_size*i)
+        width= wx.Bitmap.GetWidth(bmpicture)
+        height= wx.Bitmap.GetHeight(bmpicture)
+        dc = wx.MemoryDC()
+        dc.SelectObject(bmpicture)
+        hue=wx.Colour()
+        for y in range(1, height-1):
+            for x in range(1, width-1):
+                hue=wx.DC.GetPixel(dc,x,y)
+                newred2=wx.Colour.Red(hue)
+                newblue2=wx.Colour.Blue(hue)
+                newgreen2=wx.Colour.Green(hue)
+                sums= newred2 + newblue2+ newgreen2
+                averages=sums/3
+                newaverages=int(256/averages)
+                if newaverages<interval_count:
+                    
+                newred=wx.Colour.Red(hue)
+                hue.Red=interval_values[int(newred/group_size)-1]
+                
+                
+                
+                newblue=wx.Colour.Blue(hue)
+                hue.Blue=interval_values[int(newblue/group_size)-1]
+
+                newgreen=wx.Colour.Green(hue)
+                hue.Green=interval_values[int(newgreen/group_size)-1]
+                
+                newcolor=wx.Colour(hue.Red,hue.Blue,hue.Green,255)
+                mypen=wx.Pen(newcolor)
+                wx.Pen.SetColour(mypen,newcolor)
+                wx.DC.SetPen(dc,mypen)
+                wx.DC.DrawPoint(dc,x,y)
+        dc.SelectObject(wx.NullBitmap)        
+        return bmpicture    
     
     def greyscalefilter( self, bmpicture):
         width= wx.Bitmap.GetWidth(bmpicture)
         height= wx.Bitmap.GetHeight(bmpicture)
-        size = width,height
         dc = wx.MemoryDC()
         dc.SelectObject(bmpicture)
         hue=wx.Colour()
         oldP=wx.Colour()
-        Threshold = 150
         for y in range(1, height-1):
             for x in range(1, width-1):
                 hue=wx.DC.GetPixel(dc,x,y)
@@ -156,8 +210,6 @@ class MainWindow(wx.Frame):
                 wx.DC.SetPen(dc,mypen)
                 wx.DC.DrawPoint(dc,x,y)
         dc.SelectObject(wx.NullBitmap)
-        img=bmpicture.ConvertToImage()
-        img.SaveFile("test.png", wx.BITMAP_TYPE_PNG)
         return bmpicture
         
     def posterizefilter(self,bmpicture):
@@ -166,17 +218,15 @@ class MainWindow(wx.Frame):
         group_size=256/interval_count
         for i in range(0,interval_count-1):
             interval_values.append(group_size*i)
-        
         width= wx.Bitmap.GetWidth(bmpicture)
         height= wx.Bitmap.GetHeight(bmpicture)
-        size = width,height
         dc = wx.MemoryDC()
         dc.SelectObject(bmpicture)
         hue=wx.Colour()
         for y in range(1, height-1):
             for x in range(1, width-1):
                 hue=wx.DC.GetPixel(dc,x,y)
-                
+
                 newred=wx.Colour.Red(hue)
                 hue.Red=interval_values[int(newred/group_size)-1]
                 
@@ -191,14 +241,13 @@ class MainWindow(wx.Frame):
                 wx.Pen.SetColour(mypen,newcolor)
                 wx.DC.SetPen(dc,mypen)
                 wx.DC.DrawPoint(dc,x,y)
-                
+        dc.SelectObject(wx.NullBitmap)        
         return bmpicture
                 
                        
     def solarizefilter(self, bmpicture):
         width= wx.Bitmap.GetWidth(bmpicture)
         height= wx.Bitmap.GetHeight(bmpicture)
-        size = width,height
         dc = wx.MemoryDC()
         dc.SelectObject(bmpicture)
         hue=wx.Colour()
@@ -229,7 +278,6 @@ class MainWindow(wx.Frame):
     def inversefilter(self, bmpicture):
         width= wx.Bitmap.GetWidth(bmpicture)
         height= wx.Bitmap.GetHeight(bmpicture)
-        size = width,height
         dc = wx.MemoryDC()
         dc.SelectObject(bmpicture)
         """Goes pixel by Pixel"""
@@ -252,7 +300,6 @@ class MainWindow(wx.Frame):
     def glassfilter(self, bmpicture):
         width= wx.Bitmap.GetWidth(bmpicture)
         height= wx.Bitmap.GetHeight(bmpicture)
-        size = width,height
         Distance=5
         dc = wx.MemoryDC()
         dc.SelectObject(bmpicture)
@@ -277,7 +324,6 @@ class MainWindow(wx.Frame):
         """Builds and returns a new image which is a blurred copy of the argument image"""    
         width= wx.Bitmap.GetWidth(bmpicture)
         height= wx.Bitmap.GetHeight(bmpicture) 
-        size = width,height
         dc = wx.MemoryDC()
         dc.SelectObject(bmpicture)
         """Goes pixel by Pixel"""
